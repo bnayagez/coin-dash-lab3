@@ -6,6 +6,8 @@ class CoinDash extends Phaser.Scene {
     const c = COIN_DASH;
     this.score = 0;
     this.finished = false;
+    this.paused = false;
+    this.physics.resume();
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
@@ -33,7 +35,12 @@ class CoinDash extends Phaser.Scene {
     });
     this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,R');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,R,P');
+    this.pauseIndicator = this.add.text(c.width / 2, c.height / 2,
+      'PAUSED\nPress P to resume',
+      { font: '32px monospace', color: '#ffffff', backgroundColor: '#0a1120',
+        align: 'center', padding: { x: 24, y: 16 } }
+    ).setOrigin(0.5).setVisible(false);
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
   }
 
@@ -51,6 +58,18 @@ class CoinDash extends Phaser.Scene {
 
   update() {
     if (this.finished) return;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.P)) {
+      this.paused = !this.paused;
+      this.pauseIndicator.setVisible(this.paused);
+      if (this.paused) {
+        this.pausedAt = this.time.now;
+        this.physics.pause();
+      } else {
+        this.deadline += this.time.now - this.pausedAt;
+        this.physics.resume();
+      }
+    }
+    if (this.paused) return;
     const dx = Number(this.cursors.right.isDown || this.keys.D.isDown)
       - Number(this.cursors.left.isDown || this.keys.A.isDown);
     const dy = Number(this.cursors.down.isDown || this.keys.S.isDown)
