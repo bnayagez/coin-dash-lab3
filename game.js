@@ -5,12 +5,21 @@ class CoinDash extends Phaser.Scene {
   create() {
     const c = COIN_DASH;
     this.score = 0;
+    // Storage may be unavailable (for example, when blocked by browser settings).
+    if (this.highScore === undefined) this.highScore = 0;
+    try {
+      const saved = Number(localStorage.getItem('coinDash.highScore'));
+      if (Number.isSafeInteger(saved) && saved >= 0) {
+        this.highScore = Math.max(this.highScore, saved);
+      }
+    } catch { /* Keep the in-memory high score when storage is unavailable. */ }
     this.finished = false;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
       c.colors.background, 1, 0x24334b, 0.45);
     this.hud = this.add.text(18, 12, '', { font: '18px monospace', color: '#ffffff' });
+    this.updateHud();
     this.player = this.add.rectangle(c.width / 2, c.height / 2, 24, 24, c.colors.player);
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -29,6 +38,13 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.coin, () => {
       if (this.finished) return;
       this.score++;
+      if (this.score > this.highScore) {
+        this.highScore = this.score;
+        try {
+          localStorage.setItem('coinDash.highScore', String(this.highScore));
+        } catch { /* Continue playing even if the browser cannot save. */ }
+      }
+      this.updateHud();
       this.placeCoin();
     });
     this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
@@ -58,8 +74,12 @@ class CoinDash extends Phaser.Scene {
     const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
     this.player.body.setVelocity(direction.x, direction.y);
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
-    this.hud.setText(`Coins: ${this.score}                       Time: ${seconds}s`);
+    this.updateHud(seconds);
     if (seconds === 0) this.finish('Time is up!');
+  }
+
+  updateHud(seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000))) {
+    this.hud.setText(`Coins: ${this.score}     High score: ${this.highScore}     Time: ${seconds}s`);
   }
 
   finish(reason) {
